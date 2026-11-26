@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <time.h>
 
 // gcc -O2 -Wall trabalho-m3-servidor.c -o trabalho-m3-servidor -pthread
 // sudo ./trabalho-m3-servidor
@@ -397,6 +398,36 @@ void requisicao_aperiodica(int id) {
   enqueue_job(novo_sort, ev);
 }
 
+/////////////////////// GERADOR DE REQUISIÇÕES APERIÓDICAS ///////////////////////
+
+void *aperiodic_generator(void *arg) {
+    (void)arg;
+    int counter = 0;
+
+    while (1) {
+        // Gera um job a cada 30–120 ms
+        int delay_ms = 30 + rand() % 91;
+
+        struct timespec req = {0};
+        req.tv_nsec = delay_ms * 1000000L;
+        nanosleep(&req, NULL);
+
+        sort_evt_t *ev = malloc(sizeof(sort_evt_t));
+
+        if (ev == NULL)
+            continue;
+
+        ev->id = ++counter;
+        clock_gettime(CLOCK_MONOTONIC, &ev->instante_evento);
+
+        printf("[GERADOR] nova requisicao aperiodica %d\n", ev->id);
+
+        enqueue_job(novo_sort, ev);
+    }
+
+    return NULL;
+}
+
 int main(){
   //cria 20 requisições do sort
   int i;
@@ -409,6 +440,10 @@ int main(){
 
   //inicia o servidor que le as requisições
   start_server_thread();
+
+  // Inicia o gerador de requisicoes aperiodicas
+  pthread_t generator;
+  pthread_create(&generator, NULL, aperiodic_generator, NULL);
 
   while (1) {
     pause();
